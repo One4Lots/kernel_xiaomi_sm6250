@@ -1147,6 +1147,12 @@ static int __cam_isp_ctx_reg_upd_in_sof(struct cam_isp_context *ctx_isp,
 	else if (ctx_isp->fps && ((rup_event_data->irq_mono_boot_time -
 			ctx_isp->irq_timestamps) > ((1000*1000)/ctx_isp->fps)))
 		ctx_isp->irq_delay_detect = true;
+		trace_cam_isp_irq_delay_detect("IRQ delay at reg_upd",
+			ctx, req ? req->request_id : 0,
+			ctx_isp->substate_activated,
+			(rup_event_data->irq_mono_boot_time -
+			ctx_isp->irq_timestamps));
+	}
 
 	ctx_isp->irq_timestamps = rup_event_data->irq_mono_boot_time;
 end:
