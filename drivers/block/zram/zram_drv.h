@@ -126,4 +126,11 @@ struct zram {
 	struct dentry *debugfs_dir;
 #endif
 };
+#ifdef CONFIG_ZRAM_DEDUP
+u64 zram_dedup_dup_size(struct zram *zram);
+u64 zram_dedup_meta_size(struct zram *zram);
+#else
+static inline u64 zram_dedup_dup_size(struct zram *zram) { return 0; }
+static inline u64 zram_dedup_meta_size(struct zram *zram) { return 0; }
+#endif
 #endif
