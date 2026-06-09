@@ -547,4 +547,12 @@ int dma_buf_mmap(struct dma_buf *, struct vm_area_struct *,
 void *dma_buf_vmap(struct dma_buf *);
 void dma_buf_vunmap(struct dma_buf *, void *vaddr);
 int dma_buf_get_flags(struct dma_buf *dma_buf, unsigned long *flags);
+
+/* * Vendor debugfs fallback stub.
+ * Safely handles the call if the vendor debug implementation is missing.
+ */
+static inline void dmabuf_dent_put(struct dma_buf *dmabuf)
+{
+	/* optimized out by the compiler */
+}
 #endif /* __DMA_BUF_H__ */
