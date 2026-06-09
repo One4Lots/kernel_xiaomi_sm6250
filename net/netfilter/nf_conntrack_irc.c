@@ -19,6 +19,7 @@
 #include <linux/tcp.h>
 #include <linux/netfilter.h>
 #include <linux/slab.h>
+#include <linux/list.h>
 
 #include <net/netfilter/nf_conntrack.h>
 #include <net/netfilter/nf_conntrack_expect.h>
@@ -67,15 +68,18 @@ static const char *const dccprotos[] = {
 #define MINLENNICK 2
 #endif
 
-/* Forward declaration of the opaque vendor tracking structure */
-struct irc_client;
+/* Concrete definition to satisfy the vendor's internal pointers and list operations */
+struct irc_client {
+	struct list_head ptr;
+	char *nickname;
+	bool conn_to_server;
+};
 
 /* Global state tracking counter */
 static unsigned int no_of_clients = 0;
 
 /**
- * search_client_by_ip - Opaque lookup for active vendor tracking clients
- * @tuple: Pointer to the conntrack tuple tracking network state
+ * search_client_by_ip - Safely disables missing vendor client tracking
  */
 static inline struct irc_client *search_client_by_ip(const struct nf_conntrack_tuple *tuple)
 {
@@ -84,13 +88,18 @@ static inline struct irc_client *search_client_by_ip(const struct nf_conntrack_t
 
 /**
  * handle_nickname - Stub interface for vendor nickname parsing
- * @data: Pointer to the raw packet payload
- * @len: Length of the parsed nickname data string
- * @client: Pointer to the opaque tracking structure
  */
-static inline void handle_nickname(const char *data, int len, struct irc_client *client)
+static inline int handle_nickname(struct nf_conn *ct, int dir, char *data)
 {
-	/* Intentional stub: feature infrastructure is absent from this tree */
+	return NF_ACCEPT;
+}
+
+/**
+ * mangle_ip - Stub interface for vendor IP mangling
+ */
+static inline int mangle_ip(struct nf_conn *ct, int dir, char *data)
+{
+	return 0;
 }
 /* --- End Vendor IRC Multi-Client Compatibility Interface --- */
 
@@ -150,18 +159,19 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 	struct nf_conntrack_expect *exp;
 	struct nf_conntrack_tuple *tuple;
 	__be32 dcc_ip;
-	u_int16_t dcc_port;
+	u_int16_t dcc_port = 0; /* Initialized to prevent garbage data */
 	__be16 port;
+	
+	/* Consolidated and corrected variable declarations */
 	int i, ret = NF_ACCEPT;
-	char *addr_beg_p, *addr_end_p;
+	char *addr_beg_p = NULL, *addr_end_p = NULL;
 	typeof(nf_nat_irc_hook) nf_nat_irc;
-	int i, ret = NF_ACCEPT;
-	char *addr_beg_p, *addr_end_p;
-	typeof(nf_nat_irc_hook) nf_nat_irc;
-
-	/* Professional type declarations for custom execution logic */
+	
+	/* Local variables required for the vendor execution logic */
 	struct irc_client *temp;
 	char *nick_end;
+	char *for_print;
+	int mangle = 0;
 
 	/* If packet is coming from IRC server */
 	if (dir == IP_CT_DIR_REPLY)
@@ -242,6 +252,15 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 			}
 			tuple = &ct->tuplehash[!dir].tuple;
 			port = htons(dcc_port);
+			
+			/* Safely allocate expectation pointer before initializing */
+			exp = nf_ct_expect_alloc(ct);
+			if (!exp) {
+				nf_ct_helper_log(skb, ct, "cannot alloc expectation");
+				ret = NF_DROP;
+				goto out;
+			}
+
 			nf_ct_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT,
 					  tuple->src.l3num,
 					  NULL, &tuple->dst.u3,
@@ -250,8 +269,8 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 			nf_nat_irc = rcu_dereference(nf_nat_irc_hook);
 			if (nf_nat_irc && ct->status & IPS_NAT_MASK)
 				ret = nf_nat_irc(skb, ctinfo, protoff,
-						 addr_beg_p - ib_ptr,
-						 addr_end_p - addr_beg_p,
+						 addr_beg_p ? addr_beg_p - ib_ptr : 0,
+						 (addr_end_p && addr_beg_p) ? addr_end_p - addr_beg_p : 0,
 						 exp);
 			else if (nf_ct_expect_related(exp) != 0) {
 				nf_ct_helper_log(skb, ct,
@@ -263,7 +282,7 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 		}
 	}
 
-	else{
+	else {
 		/*Parsing NICK command from client to create an entry
 		 * strlen("NICK xxxxxx")
 		 * 5+strlen("xxxxxx")=1 (minimum length of nickname)
