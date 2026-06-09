@@ -62,6 +62,38 @@ static const char *const dccprotos[] = {
 
 #define MINMATCHLEN	5
 
+/* --- Begin Vendor IRC Multi-Client Compatibility Interface --- */
+#ifndef MINLENNICK
+#define MINLENNICK 2
+#endif
+
+/* Forward declaration of the opaque vendor tracking structure */
+struct irc_client;
+
+/* Global state tracking counter */
+static unsigned int no_of_clients = 0;
+
+/**
+ * search_client_by_ip - Opaque lookup for active vendor tracking clients
+ * @tuple: Pointer to the conntrack tuple tracking network state
+ */
+static inline struct irc_client *search_client_by_ip(const struct nf_conntrack_tuple *tuple)
+{
+	return NULL;
+}
+
+/**
+ * handle_nickname - Stub interface for vendor nickname parsing
+ * @data: Pointer to the raw packet payload
+ * @len: Length of the parsed nickname data string
+ * @client: Pointer to the opaque tracking structure
+ */
+static inline void handle_nickname(const char *data, int len, struct irc_client *client)
+{
+	/* Intentional stub: feature infrastructure is absent from this tree */
+}
+/* --- End Vendor IRC Multi-Client Compatibility Interface --- */
+
 /* tries to get the ip_addr and port out of a dcc command
  * return value: -1 on failure, 0 on success
  *	data		pointer to first byte of DCC command data
@@ -123,6 +155,13 @@ static int help(struct sk_buff *skb, unsigned int protoff,
 	int i, ret = NF_ACCEPT;
 	char *addr_beg_p, *addr_end_p;
 	typeof(nf_nat_irc_hook) nf_nat_irc;
+	int i, ret = NF_ACCEPT;
+	char *addr_beg_p, *addr_end_p;
+	typeof(nf_nat_irc_hook) nf_nat_irc;
+
+	/* Professional type declarations for custom execution logic */
+	struct irc_client *temp;
+	char *nick_end;
 
 	/* If packet is coming from IRC server */
 	if (dir == IP_CT_DIR_REPLY)
