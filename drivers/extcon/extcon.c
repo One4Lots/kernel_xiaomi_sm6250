@@ -1317,7 +1317,7 @@ int extcon_dev_register(struct extcon_dev *edev)
 		}
 	}
 
-	for (index = 0; index < edev->max_supported; index++)
+	for (index = 0; index < edev->max_supported; index++) {
 		RAW_INIT_NOTIFIER_HEAD(&edev->nh[index]);
 		BLOCKING_INIT_NOTIFIER_HEAD(&edev->bnh[index]);
 	}
