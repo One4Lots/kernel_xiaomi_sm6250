@@ -2021,7 +2021,6 @@ void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	bool turning_on_clk = false;
 	u8 ctrl;
 	int ret;
-	unsigned long flags;
 
 	host->reinit_uhs = false;
 
