@@ -315,5 +315,15 @@ int cam_isp_context_init(struct cam_isp_context *ctx,
  */
 int cam_isp_context_deinit(struct cam_isp_context *ctx);
 
+/* * Downstream Port Fallback:
+ * Upstream code utilizes trace_cam_isp_irq_delay_detect, but our current
+ * kernel tracing subsystem lacks the event definition. This no-op macro 
+ * prevents compilation failure while keeping the .c logic pristine.
+ */
+#ifndef trace_cam_isp_irq_delay_detect
+#define trace_cam_isp_irq_delay_detect(name, ctx, req_id, substate, delay) do { } while (0)
+#endif
+
+#endif /* Ensure this is above the final header guard! */
 
 #endif  /* __CAM_ISP_CONTEXT_H__ */
