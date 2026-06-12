@@ -296,6 +296,14 @@ static void qcom_smp2p_notify_in(struct qcom_smp2p *smp2p)
 	}
 }
 
+static irqreturn_t qcom_smp2p_isr(int irq, void *data)
+{
+	struct qcom_smp2p *smp2p = data;
+
+	__pm_stay_awake(&smp2p->ws);
+	return IRQ_WAKE_THREAD;
+}
+
 /**
  * qcom_smp2p_intr() - interrupt handler for incoming notifications
  * @irq:	unused
