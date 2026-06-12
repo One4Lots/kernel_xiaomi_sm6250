@@ -32,6 +32,7 @@
 *******************************************************************************
 */
 //  SHA3_HMAC - HMAC using SHA3-256
+#include <linux/slab.h>
 #include "ucl_sha3.h"
 #include <linux/string.h>
 #define SHA3_256_HMAC
@@ -59,51 +60,63 @@
 /// TRUE - command successful @n
 /// FALSE - command failed
 ///
+
 int sha3_256_hmac(unsigned char *key, int key_len, unsigned char *message, int msg_len, unsigned char *mac)
 {
-	int i;
-	unsigned char thash[256];
-	unsigned char tmac[256];
-	unsigned char cat_input_thash[1024];
-	unsigned char cat_input_final[1024];
+    int i;
+    unsigned char thash[256];
+    unsigned char tmac[256];
 
-	int blocksize = 136;
-	int hashsize = 32;
-	unsigned char opad[136];
-	unsigned char ipad[136];
+    // --- CHANGE: Use pointers instead of fixed arrays ---
+    unsigned char *cat_input_thash;
+    unsigned char *cat_input_final;
 
-	memset(opad, 0x5C, blocksize);
-	memset(ipad, 0x36, blocksize);
+    int blocksize = 136;
+    int hashsize = 32;
+    unsigned char opad[136];
+    unsigned char ipad[136];
 
-	//  Check to see if key is larger then blocksize
-	if (key_len > blocksize)
-		return 0;  // Not supported
+    // --- CHANGE: Allocate memory dynamically on the Heap ---
+    cat_input_thash = kmalloc(1024, GFP_KERNEL);
+    cat_input_final = kmalloc(1024, GFP_KERNEL);
 
-	// check for blocks too big
-	if (msg_len > 512)
-		return 0;
+    // CRITICAL: If allocation fails, don't crash, just exit
+    if (!cat_input_thash || !cat_input_final) {
+        kfree(cat_input_thash);
+        kfree(cat_input_final);
+        return 0;
+    }
 
-	// Loop through bytes of ipad/opad and XOR with key
-	for (i = 0; i < key_len; i++) {
-		// XOR ipad with key
-		ipad[i] ^= key[i];
-		// XOR opad with key
-		opad[i] ^= key[i];
-	}
+    memset(opad, 0x5C, blocksize);
+    memset(ipad, 0x36, blocksize);
 
-	// thash = hash(ipad || message)
-	memcpy(cat_input_thash, ipad, blocksize);
-	memcpy(&cat_input_thash[blocksize], message, msg_len);
+    if (key_len > blocksize) {
+        goto exit; // Jump to the cleanup section
+    }
 
-	ucl_sha3_256(thash, cat_input_thash, blocksize + msg_len);
+    if (msg_len > 512) {
+        goto exit;
+    }
 
-	// return hash(opad || thash)
-	memcpy(cat_input_final, opad, blocksize);
-	memcpy(&cat_input_final[blocksize], thash, hashsize);
+    for (i = 0; i < key_len; i++) {
+        ipad[i] ^= key[i];
+        opad[i] ^= key[i];
+    }
 
-	ucl_sha3_256(tmac, cat_input_final, blocksize + hashsize);
+    memcpy(cat_input_thash, ipad, blocksize);
+    memcpy(&cat_input_thash[blocksize], message, msg_len);
 
-	memcpy(mac, tmac, hashsize);
+    ucl_sha3_256(thash, cat_input_thash, blocksize + msg_len);
 
-	return 1;
+    memcpy(cat_input_final, opad, blocksize);
+    memcpy(&cat_input_final[blocksize], thash, hashsize);
+
+    ucl_sha3_256(tmac, cat_input_final, blocksize + hashsize);
+
+    memcpy(mac, tmac, hashsize);
+   // CLEANUP
+exit:
+    kfree(cat_input_thash);
+    kfree(cat_input_final);
+    return 1;
 }
