@@ -2086,7 +2086,6 @@ static void ffs_func_eps_disable(struct ffs_function *func)
 	struct ffs_data *ffs;
 	struct ffs_ep *ep;
 	struct ffs_epfile *epfile;
-	struct ffs_data *ffs;
 	unsigned short count;
 	unsigned long flags;
 
