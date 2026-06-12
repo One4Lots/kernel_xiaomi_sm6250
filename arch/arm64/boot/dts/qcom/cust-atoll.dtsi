@@ -1,39 +1,81 @@
-&firmware {
-	android {
-		vbmeta {
-			parts = "vbmeta,boot,system,vendor,dtbo,recovery";
-		};
-		fstab {
-			vendor {
-				fsmgr_flags = "wait,avb";
+/*
+ * Custom Overlay Configuration for Atoll
+ * Organized strictly: Properties ALWAYS precede subnodes.
+ */
+
+/ {
+	/* Fragment 0: Targets root /firmware path */
+	fragment@0 {
+		target-path = "/firmware";
+
+		__overlay__ {
+			android {
+				vbmeta {
+					parts = "vbmeta,boot,system,vendor,dtbo,recovery";
+				};
+
+				fstab {
+					vendor {
+						fsmgr_flags = "wait,avb";
+					};
+				};
 			};
 		};
 	};
-};
 
-&reserved_memory {
-	ramoops_mem: ramoops@9d800000 {
-		compatible = "ramoops";
-		reg = <0x0 0x9d800000 0x0 0x00400000>;
+	/* Fragment 1: Targets root /reserved-memory path */
+	fragment@1 {
+		target-path = "/reserved-memory";
 
-		record-size = <0x200000>;
-		pmsg-size = <0x200000>;
-		ecc-size = <16>;
-		max-reason = <4>;
+		__overlay__ {
+			ramoops_mem: ramoops@9d800000 {
+				compatible = "ramoops";
+				reg = <0x0 0x9d800000 0x0 0x00400000>;
+				record-size = <0x200000>;
+				pmsg-size = <0x200000>;
+				ecc-size = <16>;
+				max-reason = <4>;
+			};
+		};
 	};
-};
 
-&wdog {
-	qcom,bark-time = <15000>;
-};
+	/* Fragment 2: Targets the wdog label */
+	fragment@2 {
+		target = <&wdog>;
 
-&pm6150_vadc {
-	smb1390_therm {
-		qcom,scale-fn-type = <15>;
+		__overlay__ {
+			status = "disabled";
+		};
 	};
-};
 
-&ufshc_mem {
-	spm-level = <3>;
-	rpm-level = <3>;
+	/* Fragment 3: Targets the pm6150_vadc label */
+	fragment@3 {
+		target = <&pm6150_vadc>;
+
+		__overlay__ {
+			/* PROPERTIES FIRST */
+			pinctrl-names = "default";
+			pinctrl-0 = <&camera_flash_therm_default>;
+
+			/* SUBNODES SECOND */
+			camera_flash_therm {
+				reg = <0x4c>;
+				label = "camera_flash_therm";
+				qcom,pre-scaling = <1 1>;
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+				qcom,fast-avg-setup = <0>;
+			};
+		};
+	};
+
+	/* Fragment 4: Targets the ufshc_mem label */
+	fragment@4 {
+		target = <&ufshc_mem>;
+
+		__overlay__ {
+			vccq2-supply = <&pm6150_l12>;
+			qcom,vccq2-max-microamp = <600000>;
+		};
+	};
 };
